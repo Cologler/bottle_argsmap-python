@@ -1,0 +1,120 @@
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2021~2999 - Cologler <skyoflw@gmail.com>
+# ----------
+#
+# ----------
+
+from typing import *
+import inspect
+import functools
+import contextlib
+
+import bottle
+
+def _find_router(route: bottle.Route) -> bottle.Router:
+    'find the router which contains the route.'
+
+    def ifind_router(router: bottle.Router):
+        # static route map by METHOD, than map by rule
+        if router.static.get(route.method, {}).get(route.rule, (None, None))[0] is route:
+            return router
+
+        # dynamic route map by method, than a list
+        for route_info in router.dyna_routes.get(route.method, ()):
+            if (route, route.rule) == (route_info[2], route_info[0]):
+                return router
+
+    return ifind_router(route.app.router)
+
+
+class ArgsMap:
+    def __init__(self) -> None:
+        self._args = {}
+
+    def set_value(self, key, value):
+        return self.set_factory(key, lambda _1, _2: value)
+
+    def set_factory(self, key, factory, auto_close=False, auto_exit=False):
+        if not callable(factory):
+            raise TypeError('factory must be callable')
+        self._args[key] = (factory, auto_close, auto_exit)
+
+
+class ArgsMapContext:
+    def __init__(self, argsmap: ArgsMap) -> None:
+        self._argsmap = argsmap
+        self._es: contextlib.ExitStack = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._es:
+            self._es.__exit__(exc_type, exc_val, exc_tb)
+
+    def resolve(self, keys: Iterable[str], route: bottle.Route) -> Dict[str, Any]:
+        return {key: self.get_argval(key, route) for key in keys}
+
+    def get_argval(self, key: str, route: bottle.Route) -> Any:
+        factory, auto_close, auto_exit = self._argsmap._args[key]
+        val = factory(key, route)
+        if auto_close or auto_exit:
+            if not self._es:
+                self._es = contextlib.ExitStack()
+            if auto_close:
+                cm_exit = contextlib.closing(val)
+            else:
+                # auto_exit
+                cm_exit = val
+            self._es.enter_context(cm_exit)
+        return val
+
+
+class ArgsMapPlugin:
+    api = 2
+
+    def __init__(self, name: str = 'argsmap') -> None:
+        self.name = name
+        self.args = ArgsMap()
+
+    def setup(self, app: bottle.Bottle) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+    def apply(self, callback, route: bottle.Route):
+        params = inspect.signature(route.callback).parameters # use original callback
+        all_kwargs_names: Set[str] = {
+            k for k, v in params.items() if v.kind in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY
+            )
+        }
+
+        router = _find_router(route)
+        if not router: breakpoint()
+        assert router is not None, 'can not find route'
+        url_kwargs_names: Set[str] = {
+            kvp[0] for kvp in router.builder[route.rule] if kvp[0]
+        }
+
+        req_kwargs_names = all_kwargs_names - url_kwargs_names
+
+        if not req_kwargs_names:
+            return callback
+
+        @functools.wraps(callback)
+        def wrapped_callback(*args, **kwargs):
+            with self.get_args_provider() as prov:
+                to_resolve = req_kwargs_names - set(kwargs)
+                kwargs.update(
+                    prov.resolve(to_resolve, route)
+                )
+                return callback(*args, **kwargs)
+
+        return wrapped_callback
+
+    def get_args_provider(self) -> ArgsMap:
+        return ArgsMapContext(self.args)
