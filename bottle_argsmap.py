@@ -33,9 +33,15 @@ class ArgsMap:
         self._args = {}
 
     def set_value(self, key, value):
+        '''
+        set a argument with value.
+        '''
         return self.set_factory(key, lambda _1, _2: value)
 
     def set_factory(self, key, factory, auto_close=False, auto_exit=False):
+        '''
+        set a argument with factory (`(key: str, route: bottle.Route) -> Any`).
+        '''
         if not callable(factory):
             raise TypeError('factory must be callable')
         self._args[key] = (factory, auto_close, auto_exit)

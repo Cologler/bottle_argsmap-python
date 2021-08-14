@@ -43,7 +43,7 @@ def test_with_inject_value():
     app = Bottle()
     app.install(plugin)
 
-    plugin.args.set_value('value', '1544')
+    plugin.set_value('value', '1544')
 
     @app.get('/entires/<name>')
     def entires(name: str, value: str):
