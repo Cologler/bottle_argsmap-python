@@ -77,6 +77,11 @@ class ArgsMapPlugin:
     def __init__(self, name: str = 'argsmap') -> None:
         self.name = name
         self.args = ArgsMap()
+        self.set_value = self.args.set_value
+        self.set_factory = self.args.set_factory
+
+    def __setitem__(self, k, v):
+        self.set_value(k, v)
 
     def setup(self, app: bottle.Bottle) -> None:
         pass
