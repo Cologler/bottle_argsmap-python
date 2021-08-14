@@ -8,7 +8,21 @@
 import webtest
 from bottle import Bottle
 
-from bottle_argsmap import ArgsMapPlugin
+from bottle_argsmap import ArgsMapPlugin, try_install
+
+def test_try_install_new():
+    app = Bottle()
+    plugin = try_install(app)
+    assert isinstance(plugin, ArgsMapPlugin)
+    assert app.plugins[-1] is plugin
+
+def test_try_install_exists():
+    app = Bottle()
+    plugin = try_install(app)
+    assert plugin is try_install(app)
+    assert plugin is try_install(app)
+    assert plugin is try_install(app)
+    assert len([p for p in app.plugins if isinstance(p, ArgsMapPlugin)]) == 1
 
 def test_without_inject():
     plugin = ArgsMapPlugin()

@@ -118,3 +118,20 @@ class ArgsMapPlugin:
 
     def get_args_provider(self) -> ArgsMap:
         return ArgsMapContext(self.args)
+
+
+def try_install(app: bottle.Bottle) -> ArgsMapPlugin:
+    '''
+    append a `ArgsMapPlugin` to the plugins list, or get the exists one.
+    '''
+    if p := [p for p in app.plugins if isinstance(p, ArgsMapPlugin)]:
+        return p[-1]
+    new_plugin = ArgsMapPlugin()
+    app.install(new_plugin)
+    return new_plugin
+
+
+__all__ = [
+    'try_install',
+    'ArgsMapPlugin'
+]

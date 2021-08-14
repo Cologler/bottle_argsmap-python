@@ -8,12 +8,11 @@
 import webtest
 from bottle import Bottle
 
-from bottle_argsmap import ArgsMapPlugin
+from bottle_argsmap import try_install
 
 def test_simplest():
-    plugin = ArgsMapPlugin()
     app = Bottle()
-    app.install(plugin)
+    plugin = try_install(app)
 
     plugin.args.set_value('value', '1544')
 

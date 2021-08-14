@@ -8,9 +8,8 @@ Auto inject arguments via a `dict` like pattern.
 from bottle import Bottle
 from bottle_argsmap import ArgsMapPlugin
 
-plugin = ArgsMapPlugin()
 app = Bottle()
-app.install(plugin)
+plugin = try_install(app)
 
 # inject via singleton
 plugin.args.set_value('value', '1544')
