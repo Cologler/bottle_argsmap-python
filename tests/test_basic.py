@@ -70,32 +70,6 @@ def test_with_inject_factory():
     assert resp.status_code == 200
     assert resp.json == dict(name='test123', value='1544')
 
-def test_with_inject_factory_with_close():
-    class Closable:
-        closed = False
-        def close(self):
-            self.closed = True
-
-    plugin = ArgsMapPlugin()
-    app = Bottle()
-    app.install(plugin)
-
-    obj = Closable()
-    plugin.set_factory('value', lambda _1, _2: obj, auto_close=True)
-
-    @app.get('/entires/<name>')
-    def entires(name, value):
-        assert value is obj
-        assert not obj.closed
-        return dict(name=name)
-
-    tapp = webtest.TestApp(app)
-    assert not obj.closed
-    resp = tapp.get('/entires/test123')
-    assert obj.closed
-    assert resp.status_code == 200
-    assert resp.json == dict(name='test123')
-
 def test_with_inject_factory_with_exit():
     class Exitable:
         exited = False
@@ -110,7 +84,7 @@ def test_with_inject_factory_with_exit():
     app.install(plugin)
 
     obj = Exitable()
-    plugin.set_factory('value', lambda _1, _2: obj, auto_exit=True)
+    plugin.set_factory('value', lambda _1, _2: obj, context_manager=True)
 
     @app.get('/entires/<name>')
     def entires(name, value):

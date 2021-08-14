@@ -42,15 +42,15 @@ class ArgsMapPlugin:
         '''
         set a argument with value.
         '''
-        return self.set_factory(key, lambda _1, _2: value)
+        return self.set_factory(key, lambda *_: value)
 
-    def set_factory(self, key, factory, auto_close=False, auto_exit=False):
+    def set_factory(self, key, factory, *, context_manager=False):
         '''
         set a argument with factory (`(key: str, route: bottle.Route) -> Any`).
         '''
         if not callable(factory):
             raise TypeError('factory must be callable')
-        self._args[key] = (factory, auto_close, auto_exit)
+        self._args[key] = (factory, context_manager)
 
     def setup(self, app: bottle.Bottle) -> None:
         pass
@@ -109,20 +109,16 @@ class _ArgsResolveContext:
             self._es.__exit__(exc_type, exc_val, exc_tb)
 
     def resolve(self, keys: Iterable[str], route: bottle.Route) -> Dict[str, Any]:
-        return {key: self.get_argval(key, route) for key in keys}
+        get_argval = self.get_argval
+        return {key: get_argval(key, route) for key in keys}
 
     def get_argval(self, key: str, route: bottle.Route) -> Any:
-        factory, auto_close, auto_exit = self._argsmap[key]
+        factory, context_manager = self._argsmap[key]
         val = factory(key, route)
-        if auto_close or auto_exit:
+        if context_manager:
             if not self._es:
                 self._es = contextlib.ExitStack()
-            if auto_close:
-                cm_exit = contextlib.closing(val)
-            else:
-                # auto_exit
-                cm_exit = val
-            val = self._es.enter_context(cm_exit)
+            val = self._es.enter_context(val)
         return val
 
 
