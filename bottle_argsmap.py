@@ -47,7 +47,7 @@ class ArgsMap:
         self._args[key] = (factory, auto_close, auto_exit)
 
 
-class ArgsMapContext:
+class _ArgsResolveContext:
     def __init__(self, argsmap: ArgsMap) -> None:
         self._argsmap = argsmap
         self._es: contextlib.ExitStack = None
@@ -118,17 +118,17 @@ class ArgsMapPlugin:
 
         @functools.wraps(callback)
         def wrapped_callback(*args, **kwargs):
-            with self.get_args_provider() as prov:
+            with self._get_args_resolve_context() as ctx:
                 to_resolve = req_kwargs_names - set(kwargs)
                 kwargs.update(
-                    prov.resolve(to_resolve, route)
+                    ctx.resolve(to_resolve, route)
                 )
                 return callback(*args, **kwargs)
 
         return wrapped_callback
 
-    def get_args_provider(self) -> ArgsMap:
-        return ArgsMapContext(self.args)
+    def _get_args_resolve_context(self):
+        return _ArgsResolveContext(self.args)
 
 
 def try_install(app: bottle.Bottle) -> ArgsMapPlugin:
