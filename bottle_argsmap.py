@@ -47,47 +47,29 @@ class ArgsMap:
         self._args[key] = (factory, auto_close, auto_exit)
 
 
-class _ArgsResolveContext:
-    def __init__(self, argsmap: ArgsMap) -> None:
-        self._argsmap = argsmap
-        self._es: contextlib.ExitStack = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._es:
-            self._es.__exit__(exc_type, exc_val, exc_tb)
-
-    def resolve(self, keys: Iterable[str], route: bottle.Route) -> Dict[str, Any]:
-        return {key: self.get_argval(key, route) for key in keys}
-
-    def get_argval(self, key: str, route: bottle.Route) -> Any:
-        factory, auto_close, auto_exit = self._argsmap._args[key]
-        val = factory(key, route)
-        if auto_close or auto_exit:
-            if not self._es:
-                self._es = contextlib.ExitStack()
-            if auto_close:
-                cm_exit = contextlib.closing(val)
-            else:
-                # auto_exit
-                cm_exit = val
-            self._es.enter_context(cm_exit)
-        return val
-
-
 class ArgsMapPlugin:
     api = 2
 
     def __init__(self, name: str = 'argsmap') -> None:
         self.name = name
-        self.args = ArgsMap()
-        self.set_value = self.args.set_value
-        self.set_factory = self.args.set_factory
+        self._args = {}
 
     def __setitem__(self, k, v):
         self.set_value(k, v)
+
+    def set_value(self, key, value):
+        '''
+        set a argument with value.
+        '''
+        return self.set_factory(key, lambda _1, _2: value)
+
+    def set_factory(self, key, factory, auto_close=False, auto_exit=False):
+        '''
+        set a argument with factory (`(key: str, route: bottle.Route) -> Any`).
+        '''
+        if not callable(factory):
+            raise TypeError('factory must be callable')
+        self._args[key] = (factory, auto_close, auto_exit)
 
     def setup(self, app: bottle.Bottle) -> None:
         pass
@@ -128,7 +110,39 @@ class ArgsMapPlugin:
         return wrapped_callback
 
     def _get_args_resolve_context(self):
-        return _ArgsResolveContext(self.args)
+        return _ArgsResolveContext(self)
+
+
+class _ArgsResolveContext:
+    __slots__ = ('_argsmap', '_es')
+
+    def __init__(self, argsmap: ArgsMapPlugin) -> None:
+        self._argsmap = argsmap
+        self._es: contextlib.ExitStack = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._es:
+            self._es.__exit__(exc_type, exc_val, exc_tb)
+
+    def resolve(self, keys: Iterable[str], route: bottle.Route) -> Dict[str, Any]:
+        return {key: self.get_argval(key, route) for key in keys}
+
+    def get_argval(self, key: str, route: bottle.Route) -> Any:
+        factory, auto_close, auto_exit = self._argsmap._args[key]
+        val = factory(key, route)
+        if auto_close or auto_exit:
+            if not self._es:
+                self._es = contextlib.ExitStack()
+            if auto_close:
+                cm_exit = contextlib.closing(val)
+            else:
+                # auto_exit
+                cm_exit = val
+            val = self._es.enter_context(cm_exit)
+        return val
 
 
 def try_install(app: bottle.Bottle) -> ArgsMapPlugin:

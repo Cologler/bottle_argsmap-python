@@ -14,7 +14,7 @@ def test_simplest():
     app = Bottle()
     plugin = try_install(app)
 
-    plugin.args.set_value('value', '1544')
+    plugin.set_value('value', '1544')
 
     @app.get('/path')
     def get_it(value):

@@ -59,7 +59,7 @@ def test_with_inject_factory():
     app = Bottle()
     app.install(plugin)
 
-    plugin.args.set_factory('value', lambda _1, _2: '1544')
+    plugin.set_factory('value', lambda _1, _2: '1544')
 
     @app.get('/entires/<name>')
     def entires(name: str, value: str):
@@ -81,7 +81,7 @@ def test_with_inject_factory_with_close():
     app.install(plugin)
 
     obj = Closable()
-    plugin.args.set_factory('value', lambda _1, _2: obj, auto_close=True)
+    plugin.set_factory('value', lambda _1, _2: obj, auto_close=True)
 
     @app.get('/entires/<name>')
     def entires(name, value):
@@ -110,7 +110,7 @@ def test_with_inject_factory_with_exit():
     app.install(plugin)
 
     obj = Exitable()
-    plugin.args.set_factory('value', lambda _1, _2: obj, auto_exit=True)
+    plugin.set_factory('value', lambda _1, _2: obj, auto_exit=True)
 
     @app.get('/entires/<name>')
     def entires(name, value):
