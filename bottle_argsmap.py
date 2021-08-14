@@ -91,13 +91,13 @@ class ArgsMapPlugin:
         return wrapped_callback
 
     def _get_args_resolve_context(self):
-        return _ArgsResolveContext(self)
+        return _ArgsResolveContext(self._args)
 
 
 class _ArgsResolveContext:
     __slots__ = ('_argsmap', '_es')
 
-    def __init__(self, argsmap: ArgsMapPlugin) -> None:
+    def __init__(self, argsmap: dict) -> None:
         self._argsmap = argsmap
         self._es: contextlib.ExitStack = None
 
@@ -112,7 +112,7 @@ class _ArgsResolveContext:
         return {key: self.get_argval(key, route) for key in keys}
 
     def get_argval(self, key: str, route: bottle.Route) -> Any:
-        factory, auto_close, auto_exit = self._argsmap._args[key]
+        factory, auto_close, auto_exit = self._argsmap[key]
         val = factory(key, route)
         if auto_close or auto_exit:
             if not self._es:
