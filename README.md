@@ -18,7 +18,6 @@ plugin.set_value('value', '1544')
 # e.g. you can to inject database connection from a database pool
 plugin.set_factory('value',
     lambda param_name, route: ...,
-    auto_close=True,        # auto call `close()`  on the value after responsed
     context_manager=True,         # auto call `__exit__` on the value after responsed
 )
 
