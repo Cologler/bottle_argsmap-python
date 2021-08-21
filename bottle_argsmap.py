@@ -11,6 +11,7 @@ import functools
 import contextlib
 
 import bottle
+import anyioc
 
 def _find_router(route: bottle.Route) -> bottle.Router:
     'find the router which contains the route.'
@@ -33,7 +34,7 @@ class ArgsMapPlugin:
 
     def __init__(self, name: str = 'argsmap') -> None:
         self.name = name
-        self._args = {}
+        self.ioc = anyioc.ServiceProvider()
 
     def __setitem__(self, k, v):
         self.set_value(k, v)
@@ -42,7 +43,7 @@ class ArgsMapPlugin:
         '''
         set a argument with value.
         '''
-        return self.set_factory(key, lambda *_: value)
+        self.ioc.register_value(key, value)
 
     def set_factory(self, key, factory, *, context_manager=False):
         '''
@@ -50,7 +51,13 @@ class ArgsMapPlugin:
         '''
         if not callable(factory):
             raise TypeError('factory must be callable')
-        self._args[key] = (factory, context_manager)
+        def factory_wrapper(ioc: anyioc.ServiceProvider):
+            route: bottle.Route = ioc[bottle.Route]
+            val = factory(key, route)
+            if context_manager:
+                val = ioc.enter(val)
+            return val
+        self.ioc.register_scoped(key, factory_wrapper)
 
     def setup(self, app: bottle.Bottle) -> None:
         pass
@@ -68,8 +75,10 @@ class ArgsMapPlugin:
         }
 
         router = _find_router(route)
-        if not router: breakpoint()
-        assert router is not None, 'can not find route'
+        if not router:
+            breakpoint()
+            raise NotImplementedError('no router found')
+
         url_kwargs_names: Set[str] = {
             kvp[0] for kvp in router.builder[route.rule] if kvp[0]
         }
@@ -81,45 +90,15 @@ class ArgsMapPlugin:
 
         @functools.wraps(callback)
         def wrapped_callback(*args, **kwargs):
-            with self._get_args_resolve_context() as ctx:
+            with self.ioc.scope() as scoped:
+                scoped.register_value(bottle.Route, route)
                 to_resolve = req_kwargs_names - set(kwargs)
                 kwargs.update(
-                    ctx.resolve(to_resolve, route)
+                    {key: scoped[key] for key in to_resolve}
                 )
                 return callback(*args, **kwargs)
 
         return wrapped_callback
-
-    def _get_args_resolve_context(self):
-        return _ArgsResolveContext(self._args)
-
-
-class _ArgsResolveContext:
-    __slots__ = ('_argsmap', '_es')
-
-    def __init__(self, argsmap: dict) -> None:
-        self._argsmap = argsmap
-        self._es: contextlib.ExitStack = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._es:
-            self._es.__exit__(exc_type, exc_val, exc_tb)
-
-    def resolve(self, keys: Iterable[str], route: bottle.Route) -> Dict[str, Any]:
-        get_argval = self.get_argval
-        return {key: get_argval(key, route) for key in keys}
-
-    def get_argval(self, key: str, route: bottle.Route) -> Any:
-        factory, context_manager = self._argsmap[key]
-        val = factory(key, route)
-        if context_manager:
-            if not self._es:
-                self._es = contextlib.ExitStack()
-            val = self._es.enter_context(val)
-        return val
 
 
 def try_install(app: bottle.Bottle) -> ArgsMapPlugin:
