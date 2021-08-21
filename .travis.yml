@@ -1,0 +1,20 @@
+language: python
+dist: xenial
+python:
+  - '3.8'
+  - '3.9'
+
+before_install:
+  - pip install poetry poetry-dynamic-versioning
+install:
+  - poetry install
+
+script:
+  - python -m pytest
+
+deploy:
+  provider: script
+  script: poetry publish --build -u $PYPI_USER -p $PYPI_PW
+  skip_cleanup: true
+  on:
+    tags: true
