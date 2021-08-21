@@ -1,9 +1,11 @@
 [tool.poetry]
 name = "bottle-argsmap"
-version = "0.1.0"
+version = "0.0.0"
 description = ""
 authors = ["Cologler <skyoflw@gmail.com>"]
 license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/Cologler/bottle_argsmap-python"
 
 [tool.poetry.dependencies]
 python = "^3.8"
