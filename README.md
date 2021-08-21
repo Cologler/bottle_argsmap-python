@@ -27,3 +27,7 @@ plugin.set_factory('value',
 def get_it(value): # value is injected
     return dict(value=value)
 ```
+
+## More
+
+`ArgsMapPlugin().ioc` is a instance of type `anyioc.ServiceProvider`, which means you can use all features from `anyioc`.
